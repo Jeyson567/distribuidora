@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f766e" />
+    <title>Isaac POS</title>
+    <link rel="stylesheet" href="./css/styles.css" />
+    <!-- Firebase se descarga del CDN oficial. Cambie la versión en las 4 líneas. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "firebase/app": "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js",
+          "firebase/auth": "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js",
+          "firebase/firestore": "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js",
+          "firebase/storage": "https://www.gstatic.com/firebasejs/12.17.0/firebase-storage.js"
+        }
+      }
+    </script>
+  </head>
+  <body class="bg-slate-100 text-slate-900">
+    <div id="app"><div data-boot></div></div>
+    <script src="./boot-check.js"></script>
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>

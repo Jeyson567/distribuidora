@@ -1,0 +1,120 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // The installation has exactly one operator: the UID stored during setup.
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/configuracion/sistema)
+        && get(/databases/$(database)/documents/configuracion/sistema).data.adminUid == request.auth.uid;
+    }
+
+    function unchanged(field) {
+      return !(field in request.resource.data) || request.resource.data[field] == resource.data[field];
+    }
+
+    function isMoney(value) {
+      return value is int && value >= -100000000000 && value <= 100000000000;
+    }
+
+    // Collections that declare their own, stricter rules below.
+    function ownRules() {
+      return ['configuracion', 'ventas', 'compras', 'movimientosInventario',
+              'auditoria', 'cajas', 'movimientosCaja', 'productos'];
+    }
+
+    // ---- One-time bootstrap -------------------------------------------------
+    // Readable without authentication so setup.html can tell whether the system
+    // was already configured. Neither field is secret.
+    match /configuracion/sistema {
+      allow read: if true;
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/configuracion/sistema)
+        && request.resource.data.adminUid == request.auth.uid
+        && request.resource.data.configurado == true;
+      allow update: if isAdmin() && request.resource.data.adminUid == resource.data.adminUid;
+      allow delete: if false;
+    }
+
+    match /configuracion/{document} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && document != 'sistema';
+      allow delete: if false;
+    }
+
+    // ---- Ledger collections -------------------------------------------------
+    match /ventas/{saleId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && isMoney(request.resource.data.totalCents)
+        && request.resource.data.totalCents > 0
+        && request.resource.data.lineas is list
+        && request.resource.data.estado == 'ACTIVA';
+      // Only returns and cancellations may touch a sale, and never its money.
+      allow update: if isAdmin()
+        && unchanged('numero') && unchanged('fecha')
+        && unchanged('totalCents') && unchanged('clienteId')
+        && unchanged('costoVentaCents');
+      allow delete: if false;
+    }
+
+    match /compras/{purchaseId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && isMoney(request.resource.data.totalCents)
+        && request.resource.data.totalCents > 0;
+      allow update: if isAdmin() && unchanged('numero') && unchanged('fecha') && unchanged('totalCents');
+      allow delete: if false;
+    }
+
+    match /movimientosInventario/{movementId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.cantidadBaseMilli is int;
+      allow update, delete: if false;
+    }
+
+    match /auditoria/{entryId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    match /cajas/{cashId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isMoney(request.resource.data.aperturaCents);
+      allow update: if isAdmin() && unchanged('fechaApertura') && unchanged('aperturaCents');
+      allow delete: if false;
+    }
+
+    match /movimientosCaja/{moveId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isMoney(request.resource.data.montoCents);
+      allow update, delete: if false;
+    }
+
+    // ---- Catalogues ---------------------------------------------------------
+    match /productos/{productId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin()
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && isMoney(request.resource.data.precioVentaCents)
+        && request.resource.data.socioId is string;
+      allow delete: if false;
+    }
+
+    // Accounts, payments, expenses, waste and returns plus the remaining
+    // catalogues. Collections with their own rules above are excluded here so
+    // those stricter conditions cannot be bypassed.
+    match /{collection}/{documentId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && !(collection in ownRules());
+      allow delete: if false;
+    }
+  }
+}

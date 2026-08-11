@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Configuración inicial · Isaac POS</title>
+    <link rel="stylesheet" href="./css/styles.css" />
+    <!-- Firebase se descarga del CDN oficial. Cambie la versión en las 4 líneas. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "firebase/app": "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js",
+          "firebase/auth": "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js",
+          "firebase/firestore": "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js",
+          "firebase/storage": "https://www.gstatic.com/firebasejs/12.17.0/firebase-storage.js"
+        }
+      }
+    </script>
+  </head>
+  <body class="bg-slate-100 text-slate-900">
+    <div data-boot></div>
+    <!-- Se muestra desde setup.js cuando los módulos terminan de cargar. -->
+    <main id="setup-app" hidden class="mx-auto max-w-3xl p-4 py-10 sm:p-8">
+      <header class="mb-8">
+        <p class="text-sm font-semibold uppercase tracking-widest text-teal-700">Isaac POS</p>
+        <h1 class="mt-2 text-3xl font-bold">Configuración inicial</h1>
+        <p class="mt-2 text-slate-600">Herramienta manual de instalación. No forma parte de la aplicación POS.</p>
+      </header>
+      <section class="grid gap-4 sm:grid-cols-3" aria-label="Estado de conexión">
+        <div class="rounded-xl border bg-white p-4"><p class="text-sm text-slate-500">Firebase</p><p id="firebase-status" class="mt-2 font-semibold">Verificando…</p></div>
+        <div class="rounded-xl border bg-white p-4"><p class="text-sm text-slate-500">Firestore</p><p id="firestore-status" class="mt-2 font-semibold">Verificando…</p></div>
+        <div class="rounded-xl border bg-white p-4"><p class="text-sm text-slate-500">Administrador</p><p id="admin-status" class="mt-2 font-semibold">Verificando…</p></div>
+      </section>
+      <p id="message" class="mt-5 hidden rounded-lg px-4 py-3 text-sm" role="status"></p>
+      <form id="setup-form" class="mt-6 space-y-7 rounded-xl border bg-white p-6 shadow-sm">
+        <fieldset id="admin-fields" class="space-y-4">
+          <legend class="text-lg font-bold">Administrador único</legend>
+          <p class="text-sm text-slate-500">Solo se habilita mientras el sistema no tenga administrador.</p>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <label class="text-sm font-medium">Correo electrónico<input required name="email" type="email" autocomplete="email" class="field mt-1"></label>
+            <label class="text-sm font-medium">Contraseña<input required name="password" type="password" minlength="10" autocomplete="new-password" class="field mt-1"></label>
+          </div>
+          <label class="block text-sm font-medium">Confirmar contraseña<input required name="confirmPassword" type="password" minlength="10" autocomplete="new-password" class="field mt-1"></label>
+        </fieldset>
+        <fieldset class="space-y-4 border-t pt-6">
+          <legend class="text-lg font-bold">Datos del negocio</legend>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <label class="text-sm font-medium">Nombre del negocio<input required name="businessName" class="field mt-1"></label>
+            <label class="text-sm font-medium">Teléfono<input name="phone" class="field mt-1"></label>
+            <label class="text-sm font-medium">NIT<input name="nit" class="field mt-1"></label>
+            <label class="text-sm font-medium">Moneda<input value="Q / Quetzales" readonly class="field mt-1 bg-slate-100"></label>
+          </div>
+          <label class="block text-sm font-medium">Dirección<textarea name="address" class="field mt-1"></textarea></label>
+        </fieldset>
+        <button id="submit-button" class="btn-primary w-full">Crear administrador y guardar configuración</button>
+      </form>
+    </main>
+    <script src="./boot-check.js"></script>
+    <script type="module" src="./js/setup.js"></script>
+  </body>
+</html>
