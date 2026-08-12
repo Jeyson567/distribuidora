@@ -296,10 +296,10 @@ export function planWaste({ product, quantityBaseMilli, reason, observation = ''
 }
 
 export function planInventoryAdjustment({
-  product, type, quantityBaseMilli, unitCostCents = null, reason, observation = '', newId, now,
+  product, type, quantityBaseMilli, unitCostCents = null, reason, observation = '',
+  operator = null, newId, now,
 }) {
   if (!product) fault('Seleccione el producto.');
-  if (!reason) fault('Indique el motivo del ajuste.');
   const allowed = [MOVEMENT.adjustIn, MOVEMENT.adjustOut, MOVEMENT.initial];
   if (!allowed.includes(type)) fault('El tipo de ajuste no es válido.');
   const quantity = requirePositive(quantityBaseMilli, 'La cantidad');
@@ -307,19 +307,24 @@ export function planInventoryAdjustment({
   const stock = Number(product.stockBaseMilli) || 0;
   const isIncrease = type !== MOVEMENT.adjustOut;
   if (!isIncrease && stock < quantity) {
-    fault(`Existencia insuficiente de ${product.nombre} para el ajuste negativo.`);
+    fault(`Existencia insuficiente de ${product.nombre} para retirar esa cantidad.`);
   }
   if (isIncrease && unitCostCents !== null) requireNonNegative(unitCostCents, 'El costo');
 
   const plan = createPlan({ newId, now });
-  const currentCost = Number(product.costoPromedioCents) || 0;
+  const currentCost = Number(product.costoCompraCents ?? product.costoPromedioCents) || 0;
   const appliedCost = isIncrease ? (unitCostCents ?? currentCost) : currentCost;
-  if (isIncrease && !appliedCost) fault('Indique el costo unitario del inventario que ingresa.');
 
   const nextStock = isIncrease ? stock + quantity : stock - quantity;
   const nextCost = isIncrease ? weightedAverage(stock, currentCost, quantity, appliedCost) : currentCost;
   const valorCents = scale(quantity, appliedCost);
   const adjustmentId = newId(COL.inventory);
+  const tipoLabel = type === MOVEMENT.adjustOut ? 'Salida' : type === MOVEMENT.initial ? 'Ajuste' : 'Entrada';
+  const defaultReason = type === MOVEMENT.adjustOut
+    ? 'Retiro de existencia'
+    : type === MOVEMENT.initial
+      ? 'Inventario inicial'
+      : 'Entrada de mercancía';
 
   plan.update(COL.products, product.id, { stockBaseMilli: nextStock, costoPromedioCents: nextCost });
   plan.set(COL.inventory, adjustmentId, {
@@ -327,20 +332,27 @@ export function planInventoryAdjustment({
     productoNombre: product.nombre,
     socioId: product.socioId,
     tipoMovimiento: type,
+    tipo: tipoLabel,
     cantidadBaseMilli: isIncrease ? quantity : -quantity,
     unidadNombre: product.unidadBaseNombre || '',
     costoUnitarioCents: appliedCost,
     costoTotalCents: isIncrease ? valorCents : -valorCents,
+    existenciaAnteriorBaseMilli: stock,
+    existenciaNuevaBaseMilli: nextStock,
     existenciaResultanteBaseMilli: nextStock,
     costoPromedioResultanteCents: nextCost,
     referenciaId: adjustmentId,
     referenciaTipo: 'AJUSTE',
-    observacion: reason,
+    observacion: reason || defaultReason,
     detalle: observation,
+    usuarioUid: operator?.uid || null,
+    usuarioEmail: operator?.email || null,
     fecha: now,
   });
   plan.audit('AJUSTE_INVENTARIO', 'INVENTARIO', adjustmentId, {
-    productoId: product.id, tipo: type, cantidadBaseMilli: quantity,
+    productoId: product.id, tipo: type, tipoLabel, cantidadBaseMilli: quantity,
+    existenciaAnteriorBaseMilli: stock, existenciaNuevaBaseMilli: nextStock,
+    usuarioEmail: operator?.email || null,
   });
 
   return { writes: plan.writes, result: { id: adjustmentId, stockBaseMilli: nextStock } };

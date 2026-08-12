@@ -1,7 +1,7 @@
 import { PAYMENT } from '../domain/constants.js';
 import { productUnits } from '../domain/units.js';
 import { registerPurchase, registerSupplierReturn } from '../services/transactions.js';
-import { COL, between, invalidate, recent } from '../services/db.js';
+import { COL, between, invalidate } from '../services/db.js';
 import { generateDocumentHtml, openPrintWindow } from '../services/printing.js';
 import { badge, dataTable, field, moneyCell, optionList, pageHeader, rangeFilter, selectInput, statCard, textInput } from '../ui/components.js';
 import { esc, notice, openModal, qs, qsa } from '../ui/dom.js';
@@ -29,8 +29,8 @@ const lineRow = (index, products) => `
 function purchaseModal(ctx) {
   const products = ctx.catalogs.products.filter((product) => product.activo !== false);
   const suppliers = ctx.catalogs.suppliers.filter((supplier) => supplier.activo !== false);
-  if (!products.length || !suppliers.length) {
-    return notice('Registre al menos un proveedor y un producto antes de comprar.', 'warn');
+  if (!products.length) {
+    return notice('Registre al menos un producto antes de comprar.', 'warn');
   }
 
   let counter = 0;
@@ -41,8 +41,11 @@ function purchaseModal(ctx) {
     body: `
       <div class="space-y-4">
         <div class="grid gap-4 sm:grid-cols-2">
-          ${field('Proveedor', selectInput('supplier', suppliers, { required: true }))}
-          ${field('Documento del proveedor', textInput('documento', { placeholder: 'Factura, recibo, etc.' }))}
+          ${suppliers.length
+    ? field('Proveedor (opcional)', selectInput('supplier', suppliers, { placeholder: 'Sin proveedor' }),
+      'El costo se toma de cada línea; no depende del proveedor.')
+    : `<p class="rounded-lg bg-slate-50 p-3 text-sm text-slate-600 sm:col-span-2">La compra se registra sin proveedor. El costo queda en cada producto.</p>`}
+          ${field('Documento / referencia', textInput('documento', { placeholder: 'Factura, recibo, etc.' }))}
         </div>
         <div>
           <p class="mb-2 text-sm font-medium text-slate-700">Productos</p>
@@ -52,7 +55,7 @@ function purchaseModal(ctx) {
         <div class="grid gap-4 sm:grid-cols-3">
           ${field('Condición', `<select name="method" class="field mt-1" id="purchase-method">
             <option value="CONTADO">Contado</option>
-            <option value="CREDITO">Crédito</option>
+            ${suppliers.length ? '<option value="CREDITO">Crédito</option>' : ''}
           </select>`)}
           <div id="settlement-wrapper">${field('Forma de pago', `<select name="settlement" class="field mt-1">
             <option value="${PAYMENT.cash}">Efectivo</option>
@@ -126,7 +129,7 @@ function purchaseModal(ctx) {
         };
       });
       const result = await registerPurchase({
-        supplierId: form.get('supplier'),
+        supplierId: form.get('supplier') || null,
         lines,
         paymentMethod: form.get('method'),
         settlementMethod: form.get('settlement'),
@@ -159,8 +162,8 @@ export default {
 
     return `
       ${pageHeader('Compras', 'Cada compra actualiza existencias y costo promedio ponderado dentro de una transacción.', `
-        <button id="supplier-return" class="btn-secondary">Devolver a proveedor</button>
-        <button id="new-purchase" class="btn-primary">Registrar compra</button>`)}
+        ${ctx.catalogs.suppliers.some((s) => s.activo !== false) ? '<button id="supplier-return" class="btn-secondary">Devolver mercancía</button>' : ''}
+        <button id="new-purchase" class="btn-primary">+ Registrar compra</button>`)}
       ${rangeFilter(range)}
       <section class="mb-6 grid gap-4 sm:grid-cols-3">
         ${statCard('Compras del período', money(total), `${purchases.length} documentos`)}
@@ -180,7 +183,7 @@ export default {
         ],
         rows: purchases,
         empty: 'No hay compras en el período seleccionado.',
-        emptyAction: { id: 'new-purchase-empty', label: 'Registrar compra' },
+        emptyAction: { id: 'new-purchase-empty', label: '+ Registrar compra' },
       })}`;
   },
 
@@ -244,14 +247,14 @@ export default {
     });
 
     qs('#supplier-return')?.addEventListener('click', () => openModal({
-      title: 'Devolución a proveedor',
+      title: 'Devolución de mercancía',
       body: `
         <div class="space-y-4">
           ${field('Proveedor', selectInput('supplier', ctx.catalogs.suppliers.filter((s) => s.activo !== false), { required: true }))}
           ${field('Producto', selectInput('product', ctx.catalogs.products.filter((p) => p.activo !== false), { required: true }))}
           ${field('Cantidad en unidad base', textInput('qty', { type: 'number', step: '0.001', min: '0.001', required: true }))}
           ${field('Motivo', textInput('reason', { required: true }))}
-          <p class="text-xs text-slate-500">Se valora al costo promedio actual. Si el proveedor tiene saldo pendiente se aplica primero a esa deuda.</p>
+          <p class="text-xs text-slate-500">Se valora al costo promedio actual del producto. Si hay saldo pendiente se aplica primero a esa deuda.</p>
         </div>`,
       onSubmit: async (form) => {
         const result = await registerSupplierReturn({

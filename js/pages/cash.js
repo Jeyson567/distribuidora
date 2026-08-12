@@ -69,7 +69,7 @@ export default {
          <button id="cash-out" class="btn-secondary">Retiro</button>
          <button id="print-cut" class="btn-secondary">Imprimir corte</button>
          <button id="close-cash" class="btn-primary">Cerrar caja</button>`
-      : '<button id="open-cash" class="btn-primary">Abrir caja</button>');
+      : '<button id="open-cash" class="btn-primary">+ Abrir caja</button>');
 
     const current = session ? `
       <section class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -103,7 +103,7 @@ export default {
       : `<div class="card mb-6 text-center">
           <h2 class="text-lg font-bold">No hay una caja abierta</h2>
           <p class="mt-2 text-sm text-slate-600">Las ventas, cobros, pagos y gastos requieren una caja abierta.</p>
-          <button id="open-cash-empty" class="btn-primary mt-4">Abrir caja</button>
+          <button id="open-cash-empty" class="btn-primary mt-4">+ Abrir caja</button>
         </div>`;
 
     return `
@@ -131,7 +131,7 @@ export default {
         ],
         rows: sessions,
         empty: 'No hay cajas en el período.',
-        emptyAction: ctx.cashSession ? null : { id: 'open-cash-history', label: 'Abrir caja' },
+        emptyAction: ctx.cashSession ? null : { id: 'open-cash-history', label: '+ Abrir caja' },
       })}`;
   },
 
@@ -245,7 +245,7 @@ export const expensesPage = {
 
     return `
       ${pageHeader('Gastos', 'Los gastos salen de la caja y pueden asignarse a un socio.',
-        '<button id="new-expense" class="btn-primary">Registrar gasto</button>')}
+        '<button id="new-expense" class="btn-primary">+ Registrar gasto</button>')}
       ${rangeFilter(range, `<label class="text-sm font-medium">Socio${
         selectInput('socio', ctx.catalogs.partners, { selected: partnerId, placeholder: 'Todos' })}</label>`)}
       <section class="mb-6 grid gap-4 sm:grid-cols-3">
@@ -264,7 +264,7 @@ export const expensesPage = {
         ],
         rows,
         empty: 'No hay gastos en el período.',
-        emptyAction: { id: 'new-expense-empty', label: 'Registrar gasto' },
+        emptyAction: { id: 'new-expense-empty', label: '+ Registrar gasto' },
       })}`;
   },
 

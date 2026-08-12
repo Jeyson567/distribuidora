@@ -39,7 +39,7 @@ const ENTITIES = {
     title: 'Categorías',
     subtitle: 'Agrupan los productos dentro del punto de venta.',
     singular: 'categoría',
-    newLabel: 'Nueva categoría',
+    newLabel: '+ Nueva categoría',
     columns: (record, ctx) => [
       { label: 'Categoría', format: (row) => `<b>${esc(row.nombre)}</b>` },
       { label: 'Descripción', format: (row) => esc(row.descripcion || '—') },
@@ -59,7 +59,7 @@ const ENTITIES = {
     title: 'Unidades de medida',
     subtitle: 'La equivalencia indica cuánto vale una unidad respecto a la referencia de su magnitud (libra, litro o unidad).',
     singular: 'unidad',
-    newLabel: 'Nueva unidad',
+    newLabel: '+ Nueva unidad',
     searchPlaceholder: 'Buscar unidad',
     extraActions: '<button id="seed-units" class="btn-secondary">Cargar unidades estándar</button>',
     columns: () => [
@@ -236,7 +236,7 @@ export function entityPage(routeId) {
       const term = searchKey(ctx.params.q || '');
       const matches = config.matches || ((row, value) => searchKey(row.nombre).includes(value));
       const filtered = term ? records.filter((row) => matches(row, term)) : records;
-      const newLabel = config.newLabel || `Nuevo ${config.singular}`;
+      const newLabel = config.newLabel || `+ Nuevo ${config.singular}`;
       const columns = [
         ...config.columns(null, ctx),
         { label: 'Estado', format: (row) => badge(row.activo === false ? 'Inactivo' : 'Activo', row.activo === false ? 'slate' : 'green') },
@@ -270,17 +270,18 @@ export function entityPage(routeId) {
     bind({ records }, ctx) {
       const save = async (form, record) => {
         const nombre = (form.get('nombre') || '').trim();
+        if (!nombre) throw Object.assign(new Error('El nombre es obligatorio.'), { isBusinessError: true });
         const payload = { nombre, nombreBusqueda: searchKey(nombre), ...config.payload(form) };
         if (record) await update(config.collection, record.id, payload);
         else await create(config.collection, { ...config.defaults, ...payload, activo: true });
         invalidate(config.collection);
-        notice(record ? 'Registro actualizado.' : 'Registro creado.');
+        notice(record ? 'Registro actualizado.' : 'Registro creado y guardado en Firestore.');
         await ctx.refresh();
       };
 
       qsa('#new-record, #new-record-empty').forEach((button) => {
         button.onclick = () => openModal({
-          title: config.newLabel || `Nuevo ${config.singular}`,
+          title: config.newLabel || `+ Nuevo ${config.singular}`,
           body: config.form(),
           onSubmit: (form) => save(form, null),
         });

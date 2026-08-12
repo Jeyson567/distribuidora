@@ -1,5 +1,5 @@
 import { collection, doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase.js';
+import { auth, db } from '../firebase.js';
 import { forOwner } from './db.js';
 import { COL, SETTINGS_DOC } from '../domain/constants.js';
 import { BusinessError } from '../domain/errors.js';
@@ -206,8 +206,10 @@ export async function registerInventoryAdjustment({
 }) {
   return execute(async (tx) => {
     const product = await readDoc(tx, COL.products, productId);
+    const user = auth.currentUser;
     return planInventoryAdjustment({
       product, type, quantityBaseMilli, unitCostCents, reason, observation,
+      operator: user ? { uid: user.uid, email: user.email || '' } : null,
       newId, now: serverTimestamp(),
     });
   });

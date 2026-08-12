@@ -62,13 +62,14 @@ export function loginScreen(root, { message = '', onSubmit }) {
  * would disguise an infrastructure problem as a login problem, so the session
  * is kept and the real reason is shown with a way to try again.
  */
-export function blockedScreen(root, { title, detail, onRetry, onSignOut }) {
+export function blockedScreen(root, { title, detail, onRetry, onSignOut, setupHref = '' }) {
   root.innerHTML = `
     <main class="grid min-h-screen place-items-center bg-slate-100 p-4">
       <div class="card w-full max-w-md text-center">
         <h1 class="text-lg font-bold">${esc(title)}</h1>
         <p id="blocked-detail" class="mt-2 text-sm text-slate-600">${esc(detail)}</p>
-        <div class="mt-6 flex justify-center gap-2">
+        <div class="mt-6 flex flex-wrap justify-center gap-2">
+          ${setupHref ? `<a href="${esc(setupHref)}" class="btn-primary">Abrir configuración inicial</a>` : ''}
           ${onRetry ? '<button id="retry" class="btn-primary">Reintentar</button>' : ''}
           <button id="signout" class="btn-secondary">Cerrar sesión</button>
         </div>

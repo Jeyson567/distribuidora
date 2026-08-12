@@ -1,4 +1,7 @@
+import { BusinessError } from '../domain/errors.js';
+import { MOVEMENT } from '../domain/constants.js';
 import { COL, create, invalidate, searchKey, update } from '../services/db.js';
+import { registerInventoryAdjustment } from '../services/transactions.js';
 import { buildProductUnits, compatibleUnits } from '../domain/units.js';
 import { badge, dataTable, field, moneyCell, pageHeader, selectInput, textInput } from '../ui/components.js';
 import { confirmAction, esc, notice, openModal, qs, qsa, reportError } from '../ui/dom.js';
@@ -26,21 +29,34 @@ const unitPicker = (units, baseUnit, product = {}) => {
 const productForm = (ctx, product = {}) => {
   const units = ctx.catalogs.units.filter((unit) => unit.activo !== false);
   const baseUnit = units.find((unit) => unit.id === product.unidadBaseId) || null;
+  const isEdit = Boolean(product.id);
+  const costoQ = (product.costoCompraCents ?? product.costoPromedioCents)
+    ? (product.costoCompraCents ?? product.costoPromedioCents) / 100
+    : '';
   return `
     <div class="space-y-4">
       <div class="grid gap-4 sm:grid-cols-2">
         ${field('Nombre', textInput('nombre', { required: true, value: product.nombre || '' }))}
-        ${field('Código interno', textInput('codigo', { value: product.codigo || '' }))}
+        ${field('Código de barras', textInput('codigo', { value: product.codigo || '' }),
+          'Opcional.')}
         ${field('Socio / área', selectInput('socioId', ctx.catalogs.partners.filter((p) => p.activo !== false), { selected: product.socioId, required: true }))}
         ${field('Categoría', selectInput('categoriaId', ctx.catalogs.categories.filter((c) => c.activo !== false), { selected: product.categoriaId, required: true }))}
-        ${field('Unidad base', selectInput('unidadBaseId', units, { selected: product.unidadBaseId, required: true, attrs: 'id="base-unit"' }),
-          'Es la unidad en la que se guarda la existencia. No se puede cambiar después de la primera compra.')}
-        ${field('Precio de venta Q (por unidad base)', textInput('precio', { type: 'number', step: '0.01', min: '0', required: true, value: product.precioVentaCents ? product.precioVentaCents / 100 : '' }))}
+        ${field('Unidad', selectInput('unidadBaseId', units, { selected: product.unidadBaseId, required: true, attrs: 'id="base-unit"' }),
+          'Unidad en la que se guarda la existencia.')}
+        ${field('Costo de compra Q', textInput('costo', {
+          type: 'number', step: '0.01', min: '0', required: !isEdit, value: costoQ,
+        }), 'Se guarda en el producto y se usa para inventario, margen y utilidades.')}
+        ${field('Precio de venta Q', textInput('precio', { type: 'number', step: '0.01', min: '0', required: true, value: product.precioVentaCents ? product.precioVentaCents / 100 : '' }))}
+        ${isEdit
+    ? field('Existencia actual', `<p class="mt-1 rounded-lg bg-slate-50 px-3 py-2 text-sm tabular-nums">${esc(quantity(product.stockBaseMilli))} ${esc(product.unidadBaseAbreviatura || product.unidadBaseNombre || '')}</p>`,
+      'Para aumentar o disminuir existencia use Inventario → Ajuste.')
+    : field('Cantidad inicial / existencia', textInput('existencia', { type: 'number', step: '0.001', min: '0', required: true, value: '' }),
+      'Al guardar, el producto queda disponible en inventario con esta cantidad. No requiere compras ni caja.')}
         ${field('Stock mínimo', textInput('minimo', { type: 'number', step: '0.001', min: '0', value: product.stockMinimoBaseMilli ? product.stockMinimoBaseMilli / 1000 : 0 }))}
         ${field('Stock máximo (opcional)', textInput('maximo', { type: 'number', step: '0.001', min: '0', value: product.stockMaximoBaseMilli ? product.stockMaximoBaseMilli / 1000 : '' }))}
       </div>
       <div>
-        <p class="text-sm font-medium text-slate-700">Otras unidades de venta y compra</p>
+        <p class="text-sm font-medium text-slate-700">Otras unidades de venta</p>
         <p class="mb-2 text-xs text-slate-500">Se convierten automáticamente a la unidad base. Deje el precio vacío para calcularlo desde el precio base.</p>
         <div id="unit-picker">${unitPicker(units, baseUnit, product)}</div>
       </div>
@@ -68,6 +84,8 @@ const buildPayload = (form, ctx) => {
     precioVentaCents: unit.precioVentaCents || Math.round((basePriceCents * unit.factorMilli) / 1000),
   }));
   const nombre = (form.get('nombre') || '').trim();
+  const costoRaw = form.get('costo');
+  const costoCompraCents = costoRaw === '' || costoRaw == null ? null : toCents(costoRaw);
   return {
     nombre,
     nombreBusqueda: searchKey(nombre),
@@ -83,6 +101,7 @@ const buildPayload = (form, ctx) => {
     stockMinimoBaseMilli: toMilli(form.get('minimo') || 0),
     stockMaximoBaseMilli: form.get('maximo') ? toMilli(form.get('maximo')) : null,
     permiteInventarioNegativo: form.get('negativo') === 'on',
+    costoCompraCents,
   };
 };
 
@@ -116,8 +135,8 @@ export default {
     const missing = missingCatalogs(ctx);
 
     return `
-      ${pageHeader('Productos', 'Cada producto pertenece a un socio y guarda su costo promedio ponderado.',
-        '<button id="new-product" class="btn-primary">+ Nuevo producto</button>')}
+      ${pageHeader('Productos', 'Agregue productos con costo, precio y cantidad. Quedan listos en inventario para vender.',
+        '<button id="new-product" class="btn-primary">+ Agregar producto</button>')}
       ${missing.length ? `<div class="card mb-5 border-amber-200 bg-amber-50 text-sm text-amber-900">
         <p>Antes de crear productos falta registrar ${esc(missing.map(([, label]) => label).join(', '))}.</p>
         <div class="mt-3 flex flex-wrap gap-2">
@@ -148,15 +167,16 @@ export default {
               return `<span class="${low ? 'font-semibold text-amber-700' : ''}">${esc(quantity(row.stockBaseMilli))} ${esc(row.unidadBaseAbreviatura || row.unidadBaseNombre || '')}</span>`;
             },
           },
-          { label: 'Costo prom.', align: 'right', format: (row) => moneyCell(row.costoPromedioCents) },
+          { label: 'Costo', align: 'right', format: (row) => moneyCell(row.costoCompraCents ?? row.costoPromedioCents) },
           { label: 'Precio', align: 'right', format: (row) => moneyCell(row.precioVentaCents) },
           {
             label: 'Margen',
             align: 'right',
             format: (row) => {
-              const margin = row.precioVentaCents - (row.costoPromedioCents || 0);
+              const costo = (row.costoCompraCents ?? row.costoPromedioCents) || 0;
+              const margin = row.precioVentaCents - costo;
               const tone = margin > 0 ? 'text-emerald-700' : 'text-red-700';
-              return `<span class="${row.costoPromedioCents ? tone : 'text-slate-400'}">${row.costoPromedioCents ? esc(money(margin)) : '—'}</span>`;
+              return `<span class="${costo ? tone : 'text-slate-400'}">${costo ? esc(money(margin)) : '—'}</span>`;
             },
           },
           { label: 'Unidades', format: (row) => esc((row.unidades || []).map((unit) => unit.nombre).join(', ') || row.unidadBaseNombre || '—') },
@@ -172,13 +192,13 @@ export default {
         empty: term || partnerId
           ? 'No hay productos que coincidan con el filtro.'
           : 'Todavía no hay productos registrados.',
-        emptyAction: term || partnerId ? null : { id: 'new-product-empty', label: '+ Nuevo producto' },
+        emptyAction: term || partnerId ? null : { id: 'new-product-empty', label: '+ Agregar producto' },
       })}`;
   },
 
   bind({ products }, ctx) {
     const openForm = (product) => openModal({
-      title: product ? `Editar ${product.nombre}` : 'Nuevo producto',
+      title: product ? `Editar ${product.nombre}` : 'Agregar producto',
       size: 'lg',
       body: productForm(ctx, product || {}),
       onReady: ({ dialog }) => {
@@ -189,20 +209,47 @@ export default {
         };
       },
       onSubmit: async (form) => {
-        const payload = buildPayload(form, ctx);
+        const { costoCompraCents, ...payload } = buildPayload(form, ctx);
+
         if (product) {
-          await update(COL.products, product.id, payload);
+          const costFields = costoCompraCents == null
+            ? {}
+            : {
+              costoCompraCents,
+              costoPromedioCents: costoCompraCents,
+              costoActualCents: costoCompraCents,
+            };
+          await update(COL.products, product.id, { ...payload, ...costFields });
+          invalidate(COL.products);
+          notice('Producto actualizado.');
         } else {
-          await create(COL.products, {
+          if (!(costoCompraCents > 0) && costoCompraCents !== 0) {
+            throw new BusinessError('Indique el costo de compra del producto.');
+          }
+          const costoCents = costoCompraCents || 0;
+          const existenciaMilli = toMilli(form.get('existencia') || 0);
+          const productId = await create(COL.products, {
             ...payload,
             stockBaseMilli: 0,
-            costoPromedioCents: 0,
-            costoActualCents: 0,
+            costoCompraCents: costoCents,
+            costoPromedioCents: costoCents,
+            costoActualCents: costoCents,
             activo: true,
           });
+          if (existenciaMilli > 0) {
+            await registerInventoryAdjustment({
+              productId,
+              type: MOVEMENT.initial,
+              quantityBaseMilli: existenciaMilli,
+              unitCostCents: costoCents,
+              reason: 'Cantidad inicial al crear el producto',
+            });
+          }
+          invalidate(COL.products);
+          notice(existenciaMilli > 0
+            ? 'Producto guardado. Ya está disponible en inventario y listo para vender.'
+            : 'Producto guardado en Firestore.');
         }
-        invalidate(COL.products);
-        notice(product ? 'Producto actualizado.' : 'Producto creado. Registre una compra o un inventario inicial.');
         await ctx.refresh();
       },
     });
@@ -213,8 +260,8 @@ export default {
       body: `
         <p class="text-sm text-slate-600">Un producto necesita un socio, una categoría y una unidad de medida.
         Todavía falta registrar ${esc(missing.map(([, label]) => label).join(', '))}.</p>
-        <div class="mt-4 flex flex-wrap gap-2">
-          ${missing.map(([route, label]) => `<button type="button" data-jump="${esc(route)}" class="btn-secondary">Crear ${esc(label)}</button>`).join('')}
+      <div class="mt-4 flex flex-wrap gap-2">
+          ${missing.map(([route, label]) => `<button type="button" data-jump="${esc(route)}" class="btn-secondary">+ Crear ${esc(label)}</button>`).join('')}
         </div>`,
       onReady: ({ dialog, close }) => {
         qsa('[data-jump]', dialog).forEach((button) => {

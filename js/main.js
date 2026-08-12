@@ -12,7 +12,6 @@ import posPage from './pages/pos.js';
 import salesPage, { returnsPage } from './pages/sales.js';
 import productsPage from './pages/products.js';
 import inventoryPage, { movementsPage, wastePage } from './pages/inventory.js';
-import purchasesPage from './pages/purchases.js';
 import cashPage, { expensesPage } from './pages/cash.js';
 import reportsPage, { partnerResultsPage } from './pages/reports.js';
 import settingsPage, { auditPage } from './pages/settings.js';
@@ -34,9 +33,6 @@ const ROUTES = {
   inventario: inventoryPage,
   movimientos: movementsPage,
   mermas: wastePage,
-  compras: purchasesPage,
-  proveedores: entityPage('proveedores'),
-  pagar: accountsPage('pagar'),
   clientes: entityPage('clientes'),
   cobrar: accountsPage('cobrar'),
   socios: entityPage('socios'),
@@ -83,10 +79,11 @@ function showLogin(message = '') {
   });
 }
 
-function showBlocked({ title, detail, retry = true }) {
+function showBlocked({ title, detail, retry = true, setupHref = '' }) {
   blockedScreen(root, {
     title,
     detail,
+    setupHref,
     onRetry: retry ? () => session.retry() : null,
     onSignOut: () => logout(),
   });

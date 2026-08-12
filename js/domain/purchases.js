@@ -43,9 +43,11 @@ export function planPurchase({
   dueDate = null, discountCents = 0, observation = '', cashSession, counters, prefix = 'C',
   newId, now,
 }) {
-  if (!supplier) fault('Seleccione un proveedor.');
-  if (supplier.activo === false) fault('El proveedor seleccionado está inactivo.');
+  if (supplier?.activo === false) fault('El proveedor seleccionado está inactivo.');
   if (!['CONTADO', 'CREDITO'].includes(paymentMethod)) fault('El método de compra no es válido.');
+  if (paymentMethod === 'CREDITO' && !supplier) {
+    fault('Las compras a crédito necesitan un proveedor con saldo. Use contado o elija un proveedor existente.');
+  }
   if (paymentMethod === 'CONTADO' && !SETTLED_METHODS.includes(settlementMethod)) {
     fault('La forma de pago de la compra no es válida.');
   }
@@ -121,8 +123,8 @@ export function planPurchase({
 
   plan.set(COL.purchases, purchaseId, {
     numero,
-    proveedorId: supplier.id,
-    proveedorNombre: supplier.nombre,
+    proveedorId: supplier?.id || null,
+    proveedorNombre: supplier?.nombre || 'Sin proveedor',
     lineas: storedLines,
     subtotalCents,
     descuentoCents: descuentoGeneralCents,
@@ -165,9 +167,11 @@ export function planPurchase({
       descripcion: `Compra ${numero}`,
     });
     cash.flush();
-    plan.update(COL.suppliers, supplier.id, {
-      totalCompradoCents: (Number(supplier.totalCompradoCents) || 0) + totalCents,
-    });
+    if (supplier) {
+      plan.update(COL.suppliers, supplier.id, {
+        totalCompradoCents: (Number(supplier.totalCompradoCents) || 0) + totalCents,
+      });
+    }
   }
 
   plan.audit('COMPRA_REGISTRADA', 'COMPRAS', purchaseId, { numero, totalCents, metodoPago: paymentMethod });

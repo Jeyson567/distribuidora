@@ -37,8 +37,9 @@ export function startSession({
     if (status === ACCESS.NOT_CONFIGURED) {
       onBlocked({
         title: 'El sistema aún no está configurado',
-        detail: 'Falta el documento configuracion/sistema. Abra setup.html para completar la instalación inicial.',
+        detail: 'Falta el documento configuracion/sistema. Complete la instalación inicial para crear el administrador y los documentos base. Firestore creará las colecciones al guardar el primer registro de cada módulo.',
         retry: false,
+        setupHref: './setup.html',
       });
       return;
     }

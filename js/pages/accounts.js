@@ -18,7 +18,7 @@ const CONFIG = {
     title: 'Cuentas por cobrar',
     subtitle: 'Saldos de los clientes que compraron a crédito.',
     actionLabel: 'Registrar cobro',
-    newLabel: 'Nueva cuenta por cobrar',
+    newLabel: '+ Nueva cuenta por cobrar',
     entityLabel: 'Cliente',
     entityRoute: 'clientes',
     pay: registerCustomerPayment,
@@ -30,11 +30,11 @@ const CONFIG = {
     ownerField: 'proveedorId',
     ownerName: 'proveedorNombre',
     title: 'Cuentas por pagar',
-    subtitle: 'Deudas con proveedores por compras al crédito.',
+    subtitle: 'Deudas por compras al crédito (saldos históricos con proveedores, si existen).',
     actionLabel: 'Registrar pago',
-    newLabel: 'Nueva cuenta por pagar',
+    newLabel: '+ Nueva cuenta por pagar',
     entityLabel: 'Proveedor',
-    entityRoute: 'proveedores',
+    entityRoute: null,
     pay: registerSupplierPayment,
     payArgs: (id, values) => ({ supplierId: id, ...values }),
   },
@@ -61,8 +61,10 @@ export function accountsPage(routeId) {
           <button id="new-account" class="btn-secondary">${esc(config.newLabel)}</button>
           <button id="new-payment" class="btn-primary">${esc(config.actionLabel)}</button>`)}
         ${owners.length ? '' : `<div class="card mb-5 border-amber-200 bg-amber-50 text-sm text-amber-900">
-          <p>Todavía no hay ${esc(config.entityLabel.toLowerCase())}s registrados.</p>
-          <button data-goto="${esc(config.entityRoute)}" class="btn-secondary mt-3">Crear ${esc(config.entityLabel.toLowerCase())}</button>
+          <p>Todavía no hay ${esc(config.entityLabel.toLowerCase())}s con saldo registrado${config.entityRoute ? '.' : ' en el historial.'}</p>
+          ${config.entityRoute
+    ? `<button data-goto="${esc(config.entityRoute)}" class="btn-secondary mt-3">Crear ${esc(config.entityLabel.toLowerCase())}</button>`
+    : '<p class="mt-2 text-xs">Las cuentas por pagar se generan al registrar compras a crédito con un proveedor existente.</p>'}
         </div>`}
         <section class="mb-6 grid gap-4 sm:grid-cols-3">
           ${statCard('Saldo total', money(total), `${entities.length} ${config.entityLabel.toLowerCase()}s con saldo`)}

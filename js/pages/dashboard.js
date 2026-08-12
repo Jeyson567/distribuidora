@@ -9,17 +9,16 @@ export default {
   async load() {
     const today = resolveRange('hoy');
     const month = resolveRange('mes');
-    const [todaySales, monthSales, monthExpenses, receivables, payables] = await Promise.all([
+    const [todaySales, monthSales, monthExpenses, receivables] = await Promise.all([
       between(COL.sales, today.from, today.to, 300),
       between(COL.sales, month.from, month.to, 1000),
       between(COL.expenses, month.from, month.to, 500),
       openAccounts(COL.receivables, 200),
-      openAccounts(COL.payables, 200),
     ]);
-    return { today, month, todaySales, monthSales, monthExpenses, receivables, payables };
+    return { today, month, todaySales, monthSales, monthExpenses, receivables };
   },
 
-  render({ today, month, todaySales, monthSales, monthExpenses, receivables, payables }, ctx) {
+  render({ today, month, todaySales, monthSales, monthExpenses, receivables }, ctx) {
     const dayReport = calculateReport({ sales: todaySales, products: [], from: today.from, to: today.to });
     const monthReport = calculateReport({
       sales: monthSales, expenses: monthExpenses, products: ctx.catalogs.products, from: month.from, to: month.to,
@@ -41,11 +40,17 @@ export default {
         <div class="card mb-6 border-teal-200 bg-teal-50">
           <h2 class="font-bold text-teal-900">Primeros pasos</h2>
           <ol class="mt-2 list-inside list-decimal space-y-1 text-sm text-teal-900">
-            <li>Cargue las unidades estándar en Configuración → Unidades.</li>
-            <li>Registre sus socios o áreas y las categorías de producto.</li>
-            <li>Cree los productos y registre su inventario inicial o su primera compra.</li>
+            <li>Cargue las unidades estándar en Unidades.</li>
+            <li>Registre socios o áreas y las categorías de producto.</li>
+            <li>Cree los productos con su costo, precio y cantidad inicial.</li>
             <li>Abra la caja y comience a vender.</li>
           </ol>
+          <div class="mt-4 flex flex-wrap gap-2">
+            ${!ctx.catalogs.units.length ? '<button data-goto="unidades" class="btn-secondary">+ Unidades</button>' : ''}
+            ${!ctx.catalogs.partners.length ? '<button data-goto="socios" class="btn-secondary">+ Socio</button>' : ''}
+            ${!ctx.catalogs.categories.length ? '<button data-goto="categorias" class="btn-secondary">+ Categoría</button>' : ''}
+            ${!ctx.catalogs.products.length ? '<button data-goto="productos" class="btn-primary">+ Producto</button>' : ''}
+          </div>
         </div>` : ''}
 
       <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -56,11 +61,10 @@ export default {
           `Gastos ${money(monthReport.gastosCents)}`, monthReport.utilidadCents < 0 ? 'text-red-700' : 'text-emerald-700')}
       </section>
 
-      <section class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         ${statCard('Valor del inventario', money(monthReport.valorInventarioCents))}
         ${statCard('Por cobrar', money(receivables.reduce((sum, item) => sum + (item.saldoCents || 0), 0)),
           `${overdue.length} vencidos`, overdue.length ? 'text-red-700' : '')}
-        ${statCard('Por pagar', money(payables.reduce((sum, item) => sum + (item.saldoCents || 0), 0)))}
         ${statCard('Efectivo en caja', money(ctx.cashSession?.efectivoCents || 0), ctx.cashSession ? 'Caja abierta' : 'Caja cerrada')}
       </section>
 
@@ -125,8 +129,8 @@ export default {
   bind(_data, ctx) {
     qs('#go-pos')?.addEventListener('click', () => ctx.navigate('pos'));
     qs('#go-cash')?.addEventListener('click', () => ctx.navigate('caja'));
-    qsa('[data-nav-inline]').forEach((button) => {
-      button.onclick = () => ctx.navigate(button.dataset.navInline);
+    qsa('[data-goto], [data-nav-inline]').forEach((button) => {
+      button.onclick = () => ctx.navigate(button.dataset.goto || button.dataset.navInline);
     });
   },
 };

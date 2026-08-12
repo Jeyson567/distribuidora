@@ -5,7 +5,6 @@ export const MENU = [
   ['Inicio', [['dashboard', 'Dashboard']]],
   ['Ventas', [['pos', 'Punto de venta'], ['ventas', 'Historial de ventas'], ['devoluciones', 'Devoluciones']]],
   ['Inventario', [['productos', 'Productos'], ['inventario', 'Inventario'], ['movimientos', 'Movimientos'], ['mermas', 'Mermas']]],
-  ['Compras', [['compras', 'Compras'], ['proveedores', 'Proveedores'], ['pagar', 'Cuentas por pagar']]],
   ['Clientes', [['clientes', 'Clientes'], ['cobrar', 'Cuentas por cobrar']]],
   ['Socios', [['socios', 'Socios / áreas'], ['resultados', 'Resultados por socio']]],
   ['Caja', [['caja', 'Caja'], ['gastos', 'Gastos']]],

@@ -146,7 +146,7 @@ export default {
     return `
       ${pageHeader('Historial de ventas', 'Las ventas no se eliminan: se anulan o se devuelven.', `
         <button id="export-sales" class="btn-secondary">Exportar CSV</button>
-        <button id="go-pos" class="btn-primary">Nueva venta</button>`)}
+        <button id="go-pos" class="btn-primary">+ Nueva venta</button>`)}
       ${rangeFilter(range, `<label class="text-sm font-medium">Cliente${
         selectInput('cliente', ctx.catalogs.customers, { selected: customerId, placeholder: 'Todos' })}</label>`)}
       <section class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -177,7 +177,7 @@ export default {
         ],
         rows,
         empty: 'No hay ventas en el período seleccionado.',
-        emptyAction: { id: 'go-pos-empty', label: 'Nueva venta' },
+        emptyAction: { id: 'go-pos-empty', label: '+ Nueva venta' },
       })}`;
   },
 
@@ -266,7 +266,7 @@ export const returnsPage = {
     return `
       ${pageHeader('Devoluciones', 'Reponen el inventario y ajustan el saldo o la caja según la resolución.', `
         <button id="go-sales" class="btn-secondary">Ir al historial de ventas</button>
-        <button id="new-return" class="btn-primary">Nueva devolución</button>`)}
+        <button id="new-return" class="btn-primary">+ Nueva devolución</button>`)}
       <section class="mb-6 grid gap-4 sm:grid-cols-3">
         ${statCard('Devoluciones', String(returns.length))}
         ${statCard('Importe devuelto', money(total))}
@@ -283,7 +283,7 @@ export const returnsPage = {
         ],
         rows: returns,
         empty: 'No hay devoluciones registradas.',
-        emptyAction: { id: 'new-return-empty', label: 'Nueva devolución' },
+        emptyAction: { id: 'new-return-empty', label: '+ Nueva devolución' },
       })}`;
   },
 
